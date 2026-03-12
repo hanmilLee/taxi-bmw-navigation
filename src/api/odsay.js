@@ -8,10 +8,16 @@ export class TransitApiQuotaExceededError extends Error {
   }
 }
 
-function isQuotaExceededPayload(status, payload) {
-  if (status === 429) return true
+export class TransitApiRateLimitedError extends Error {
+  constructor(message = '대중교통 API 요청량 제한에 도달했습니다.') {
+    super(message)
+    this.name = 'TransitApiRateLimitedError'
+    this.code = 'TRANSIT_API_RATE_LIMITED'
+  }
+}
 
-  const rawMessage = [
+function parseOdsayMessage(payload) {
+  return [
     payload?.error?.msg,
     payload?.error?.message,
     payload?.msg,
@@ -21,15 +27,31 @@ function isQuotaExceededPayload(status, payload) {
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
+}
 
+function isQuotaExceededPayload(payload) {
+  const rawMessage = parseOdsayMessage(payload)
   if (!rawMessage) return false
 
-  return ['quota', 'limit', 'exceed', 'too many', 'usage', '한도', '초과', '제한']
+  return ['quota', 'exhaust', 'insufficient', '사용량', '소진', '잔여', '일일']
+    .some((keyword) => rawMessage.includes(keyword))
+}
+
+function isRateLimitedPayload(status, payload) {
+  if (status === 429) return true
+  const rawMessage = parseOdsayMessage(payload)
+  if (!rawMessage) return false
+
+  return ['rate limit', 'too many', '요청량', '호출 제한', '초당', '분당', '제한']
     .some((keyword) => rawMessage.includes(keyword))
 }
 
 export function isTransitApiQuotaExceededError(error) {
   return error?.code === 'TRANSIT_API_QUOTA_EXCEEDED'
+}
+
+export function isTransitApiRateLimitedError(error) {
+  return error?.code === 'TRANSIT_API_RATE_LIMITED'
 }
 
 /**
@@ -59,8 +81,11 @@ export async function getTransitRoute(origin, destination) {
       errorPayload = null
     }
 
-    if (isQuotaExceededPayload(res.status, errorPayload)) {
+    if (isQuotaExceededPayload(errorPayload)) {
       throw new TransitApiQuotaExceededError()
+    }
+    if (isRateLimitedPayload(res.status, errorPayload)) {
+      throw new TransitApiRateLimitedError()
     }
 
     throw new Error(`Odsay API 오류: ${res.status}`)
@@ -69,8 +94,11 @@ export async function getTransitRoute(origin, destination) {
   const data = await res.json()
 
   if (data?.error) {
-    if (isQuotaExceededPayload(res.status, data)) {
+    if (isQuotaExceededPayload(data)) {
       throw new TransitApiQuotaExceededError()
+    }
+    if (isRateLimitedPayload(res.status, data)) {
+      throw new TransitApiRateLimitedError()
     }
     throw new Error(`Odsay API 오류: ${data.error.msg ?? '응답 오류'}`)
   }

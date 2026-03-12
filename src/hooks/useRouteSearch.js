@@ -22,7 +22,19 @@ export function useRouteSearch() {
     setNotices([])
 
     try {
-      const searchResult = await computeOptimalRoutes(origin, destination)
+      const handleProgress = (payload) => {
+        if (gen !== genRef.current) return
+        if (Array.isArray(payload?.routes)) {
+          setResults(payload.routes)
+        }
+        if (Array.isArray(payload?.notices)) {
+          setNotices(payload.notices)
+        }
+      }
+
+      const searchResult = await computeOptimalRoutes(origin, destination, {
+        onUpdate: handleProgress,
+      })
       const routeResults = Array.isArray(searchResult) ? searchResult : (searchResult?.routes ?? [])
       const nextNotices = Array.isArray(searchResult?.notices) ? searchResult.notices : []
       // 이전 검색 결과면 무시 (stale 방지)

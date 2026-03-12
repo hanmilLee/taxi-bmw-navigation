@@ -2,6 +2,10 @@
 
 일반 지도 앱에서 제공하지 않는 **택시 ↔ 대중교통 조합 경로**를 계산해 가장 빠른 이동 방법을 찾아주는 웹앱입니다.
 
+## 스크린샷
+
+![Taxi + Transit Navigator 미리보기](docs/app-preview.png)
+
 ## 기능
 
 - 출발지/도착지 입력 시 자동완성 (Kakao Local API)

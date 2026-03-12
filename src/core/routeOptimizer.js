@@ -3,11 +3,13 @@ import {
   getTransitRoute,
   extractTransferPoints,
   isTransitApiQuotaExceededError,
+  isTransitApiRateLimitedError,
 } from '../api/odsay'
 import { haversineMeters } from '../utils/geo'
 
 const MIN_TRANSFER_DISTANCE_M = 300 // 300m 이내 포인트는 스킵
-const HYBRID_CONCURRENCY = 6
+const HYBRID_CONCURRENCY = 4
+const RATE_LIMIT_RECOVERY_DELAY_MS = 450
 
 function formatTransferPointLabel(point) {
   const name = point?.name ?? ''
@@ -20,12 +22,15 @@ function formatTransferPointLabel(point) {
  * 전체 경로 최적화 계산
  * @param {{ name: string, x: number, y: number }} origin
  * @param {{ name: string, x: number, y: number }} destination
+ * @param {{ onUpdate?: (payload: { routes: Array, notices: Array }) => void }} [options]
  * @returns {Promise<{ routes: RouteOption[], notices: Array<{ id: string, type: string, message: string }> }>}
  * totalDuration(초) 기준 오름차순 정렬
  */
-export async function computeOptimalRoutes(origin, destination) {
+export async function computeOptimalRoutes(origin, destination, options = {}) {
+  const { onUpdate } = options
   const taxiState = { quotaExceeded: false }
-  const transitState = { quotaExceeded: false }
+  const transitState = { quotaExceeded: false, rateLimited: false }
+  const results = []
 
   const safeTaxiRoute = async (from, to) =>
     getTaxiRoute(from, to).catch((error) => {
@@ -35,10 +40,29 @@ export async function computeOptimalRoutes(origin, destination) {
       return null
     })
 
-  const safeTransitRoute = async (from, to) =>
-    getTransitRoute(from, to).catch((error) => {
+  const safeTransitRoute = async (
+    from,
+    to,
+    { allowRateLimitThrow = false, retryOnRateLimit = false } = {}
+  ) =>
+    getTransitRoute(from, to).catch(async (error) => {
       if (isTransitApiQuotaExceededError(error)) {
         transitState.quotaExceeded = true
+        return []
+      }
+      if (isTransitApiRateLimitedError(error)) {
+        if (retryOnRateLimit) {
+          await sleep(220)
+          return safeTransitRoute(from, to, {
+            allowRateLimitThrow,
+            retryOnRateLimit: false,
+          })
+        }
+        if (allowRateLimitThrow) {
+          throw error
+        }
+        transitState.rateLimited = true
+        return []
       }
       return []
     })
@@ -46,10 +70,8 @@ export async function computeOptimalRoutes(origin, destination) {
   // 1. 순수 택시 + 대중교통 경로 병렬 조회
   const [pureTaxiResult, transitPaths] = await Promise.all([
     safeTaxiRoute(origin, destination),
-    safeTransitRoute(origin, destination),
+    safeTransitRoute(origin, destination, { retryOnRateLimit: true }),
   ])
-
-  const results = []
 
   if (pureTaxiResult) {
     const taxiFare = pureTaxiResult.fare ?? 0
@@ -91,9 +113,15 @@ export async function computeOptimalRoutes(origin, destination) {
     })
   }
 
+  results.sort((a, b) => a.totalDuration - b.totalDuration)
+  emitUpdate(onUpdate, results, taxiState, transitState)
+
   if (!bestTransitPath) {
     // 대중교통 경로 없음 → 택시만 반환
-    return { routes: results, notices: buildNotices(taxiState, transitState) }
+    return {
+      routes: [...results],
+      notices: buildNotices(taxiState, transitState),
+    }
   }
 
   // 2. 환승 포인트 추출 및 필터링
@@ -107,16 +135,52 @@ export async function computeOptimalRoutes(origin, destination) {
   // 3. 각 환승 포인트에 대해 두 방향 조합 계산
   const hybridTasks = transferPoints.flatMap((point) => [
     // A: 택시(origin→P) + 대중교통(P→destination)
-    () => buildTaxiThenTransit(origin, point, destination, safeTaxiRoute, safeTransitRoute),
+    (runtimeOptions) =>
+      buildTaxiThenTransit(
+        origin,
+        point,
+        destination,
+        safeTaxiRoute,
+        safeTransitRoute,
+        runtimeOptions
+      ),
     // B: 대중교통(origin→P) + 택시(P→destination)
-    () => buildTransitThenTaxi(origin, point, destination, safeTaxiRoute, safeTransitRoute),
+    (runtimeOptions) =>
+      buildTransitThenTaxi(
+        origin,
+        point,
+        destination,
+        safeTaxiRoute,
+        safeTransitRoute,
+        runtimeOptions
+      ),
   ])
 
-  const hybridResults = await runWithConcurrency(hybridTasks, HYBRID_CONCURRENCY)
+  const {
+    results: hybridResults,
+    retryTasks: rateLimitedRetryTasks,
+  } = await runWithConcurrencyDetailed(hybridTasks, HYBRID_CONCURRENCY)
 
-  const all = [...results, ...hybridResults.filter(Boolean)]
-  all.sort((a, b) => a.totalDuration - b.totalDuration)
-  return { routes: all, notices: buildNotices(taxiState, transitState) }
+  const firstPassResults = hybridResults.filter(Boolean)
+  if (firstPassResults.length) {
+    results.push(...firstPassResults)
+    results.sort((a, b) => a.totalDuration - b.totalDuration)
+    emitUpdate(onUpdate, results, taxiState, transitState)
+  }
+
+  for (const retryTask of rateLimitedRetryTasks) {
+    await sleep(RATE_LIMIT_RECOVERY_DELAY_MS)
+    const recovered = await retryTask({ allowRateLimitThrow: false }).catch(() => null)
+    if (!recovered) continue
+    results.push(recovered)
+    results.sort((a, b) => a.totalDuration - b.totalDuration)
+    emitUpdate(onUpdate, results, taxiState, transitState)
+  }
+
+  return {
+    routes: [...results],
+    notices: buildNotices(taxiState, transitState),
+  }
 }
 
 function buildNotices(taxiState, transitState) {
@@ -136,14 +200,29 @@ function buildNotices(taxiState, transitState) {
       type: 'warning',
       message: '대중교통 API 사용량이 소진되어 대중교통 포함 경로 일부가 결과에서 제외되었어요.',
     })
+  } else if (transitState.rateLimited) {
+    notices.push({
+      id: 'transit-rate-limited',
+      type: 'warning',
+      message: '대중교통 API 요청량 제한으로 일부 조합 경로가 제외되었어요. 잠시 후 다시 시도해 주세요.',
+    })
   }
 
   return notices
 }
 
-async function runWithConcurrency(tasks, concurrency) {
-  if (!tasks.length) return []
+function emitUpdate(onUpdate, routes, taxiState, transitState) {
+  if (typeof onUpdate !== 'function') return
+  onUpdate({
+    routes: [...routes],
+    notices: buildNotices(taxiState, transitState),
+  })
+}
+
+async function runWithConcurrencyDetailed(tasks, concurrency) {
+  if (!tasks.length) return { results: [], retryTasks: [] }
   const results = new Array(tasks.length)
+  const retryTasks = []
   let cursor = 0
 
   async function worker() {
@@ -151,7 +230,15 @@ async function runWithConcurrency(tasks, concurrency) {
       const i = cursor
       cursor += 1
       if (i >= tasks.length) return
-      results[i] = await tasks[i]().catch(() => null)
+      try {
+        results[i] = await tasks[i]({ allowRateLimitThrow: true })
+      } catch (error) {
+        if (isTransitApiRateLimitedError(error)) {
+          retryTasks.push(tasks[i])
+          continue
+        }
+        results[i] = null
+      }
     }
   }
 
@@ -160,13 +247,26 @@ async function runWithConcurrency(tasks, concurrency) {
     () => worker()
   )
   await Promise.all(workers)
-  return results
+  return { results, retryTasks }
 }
 
-async function buildTaxiThenTransit(origin, point, destination, safeTaxiRoute, safeTransitRoute) {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function buildTaxiThenTransit(
+  origin,
+  point,
+  destination,
+  safeTaxiRoute,
+  safeTransitRoute,
+  runtimeOptions = {}
+) {
   const [taxi, transitPaths] = await Promise.all([
     safeTaxiRoute(origin, point),
-    safeTransitRoute(point, destination),
+    safeTransitRoute(point, destination, {
+      allowRateLimitThrow: runtimeOptions.allowRateLimitThrow ?? false,
+    }),
   ])
 
   if (!taxi || !transitPaths[0]) return null
@@ -196,9 +296,18 @@ async function buildTaxiThenTransit(origin, point, destination, safeTaxiRoute, s
   }
 }
 
-async function buildTransitThenTaxi(origin, point, destination, safeTaxiRoute, safeTransitRoute) {
+async function buildTransitThenTaxi(
+  origin,
+  point,
+  destination,
+  safeTaxiRoute,
+  safeTransitRoute,
+  runtimeOptions = {}
+) {
   const [transitPaths, taxi] = await Promise.all([
-    safeTransitRoute(origin, point),
+    safeTransitRoute(origin, point, {
+      allowRateLimitThrow: runtimeOptions.allowRateLimitThrow ?? false,
+    }),
     safeTaxiRoute(point, destination),
   ])
 

@@ -30,7 +30,7 @@ export function ResultsPanel({
   destination = null,
   onSelect,
 }) {
-  if (isLoading) return <LoadingState />
+  if (isLoading && results.length === 0) return <LoadingState />
 
   if (error) {
     return (
@@ -75,9 +75,16 @@ export function ResultsPanel({
             <p className="text-[11px] tracking-wide text-muted-foreground uppercase">Search Results</p>
             <p className="text-sm font-semibold tracking-tight text-foreground">{results.length}개 경로</p>
           </div>
-          <Badge variant="outline" className="rounded-full text-[11px] font-medium text-muted-foreground">
-            {results.length > 1 ? '빠른 순' : '단일 결과'}
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            {isLoading && (
+              <Badge variant="secondary" className="rounded-full text-[10px] font-medium">
+                추가 계산중
+              </Badge>
+            )}
+            <Badge variant="outline" className="rounded-full text-[11px] font-medium text-muted-foreground">
+              {results.length > 1 ? '빠른 순' : '단일 결과'}
+            </Badge>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <a
