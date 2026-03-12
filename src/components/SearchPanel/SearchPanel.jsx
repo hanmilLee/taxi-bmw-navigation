@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { PlaceInput } from './PlaceInput'
+import { useSavedLocations } from '../../hooks/useSavedLocations'
 import './SearchPanel.css'
 
 /**
@@ -8,6 +9,7 @@ import './SearchPanel.css'
 export function SearchPanel({ onSearch, isLoading }) {
   const [origin, setOrigin] = useState(null)
   const [destination, setDestination] = useState(null)
+  const { locations, save } = useSavedLocations()
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -24,12 +26,16 @@ export function SearchPanel({ onSearch, isLoading }) {
         placeholder="출발지를 입력하세요"
         value={origin}
         onChange={setOrigin}
+        savedLocations={locations}
+        onSaveLocation={save}
       />
       <div className="search-panel__arrow">→</div>
       <PlaceInput
         placeholder="도착지를 입력하세요"
         value={destination}
         onChange={setDestination}
+        savedLocations={locations}
+        onSaveLocation={save}
       />
       <button
         type="submit"

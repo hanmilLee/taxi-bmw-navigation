@@ -10,6 +10,29 @@ const ROUTE_COLORS = {
   TRANSIT_THEN_TAXI: '#8b5cf6',
 }
 
+// 지하철 호선별 공식 색상
+const SUBWAY_COLORS = {
+  1: '#0052A4',   // 1호선
+  2: '#00A84D',   // 2호선
+  3: '#EF7C1C',   // 3호선
+  4: '#00A5DE',   // 4호선
+  5: '#996CAC',   // 5호선
+  6: '#CD7C2F',   // 6호선
+  7: '#747F00',   // 7호선
+  8: '#E6186C',   // 8호선
+  9: '#BDB092',   // 9호선
+  101: '#0090D2', // 공항철도
+  104: '#6EBE44', // 경의중앙선
+  107: '#7CA8D5', // 인천1호선
+  108: '#0C8E72', // 경춘선
+  109: '#F5A200', // 수인분당선
+  110: '#D31145', // 신분당선
+  112: '#B0CE18', // 우이신설선
+  114: '#8FC31F', // 서해선
+  116: '#003DA5', // 경강선
+  21:  '#F5A200', // 인천2호선
+}
+
 /**
  * 기존 오버레이 전부 제거
  * @param {Array} overlays
@@ -48,6 +71,11 @@ export function drawRoute(map, route, origin, destination, overlays) {
       poly.setMap(map)
       overlays.push(poly)
     }
+  }
+
+  // 대중교통 구간 폴리라인 (Odsay subPaths)
+  if (route.transitPath) {
+    drawTransitPath(map, route.transitPath, overlays)
   }
 
   // 마커: 출발, 도착, 환승 포인트
@@ -91,6 +119,54 @@ export function drawRoute(map, route, origin, destination, overlays) {
     bounds.extend(new kakao.maps.LatLng(route.transferPoint.y, route.transferPoint.x))
   }
   map.setBounds(bounds)
+}
+
+/**
+ * 대중교통 경로 그리기 (Odsay subPath 기반)
+ * - 지하철: 호선별 공식 색상
+ * - 버스: 초록색
+ * - 도보: 회색 점선
+ */
+function drawTransitPath(map, transitPath, overlays) {
+  const kakao = window.kakao
+  const subPaths = transitPath.subPath ?? []
+
+  for (const seg of subPaths) {
+    const stations = seg.passStopList?.stations ?? []
+    if (stations.length < 2) continue
+
+    const path = stations.map((s) => new kakao.maps.LatLng(parseFloat(s.y), parseFloat(s.x)))
+
+    let strokeColor = '#888'
+    let strokeStyle = 'solid'
+    let strokeWeight = 4
+
+    if (seg.trafficType === 1) {
+      // 지하철 - 호선 색상
+      const code = seg.lane?.[0]?.subwayCode
+      strokeColor = SUBWAY_COLORS[code] ?? '#0052A4'
+      strokeWeight = 5
+    } else if (seg.trafficType === 2) {
+      // 버스
+      strokeColor = '#33CC33'
+      strokeWeight = 5
+    } else if (seg.trafficType === 3) {
+      // 도보 - 점선
+      strokeColor = '#aaa'
+      strokeStyle = 'shortdot'
+      strokeWeight = 3
+    }
+
+    const poly = new kakao.maps.Polyline({
+      path,
+      strokeWeight,
+      strokeColor,
+      strokeOpacity: 0.85,
+      strokeStyle,
+    })
+    poly.setMap(map)
+    overlays.push(poly)
+  }
 }
 
 /**

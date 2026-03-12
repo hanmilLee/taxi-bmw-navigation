@@ -140,21 +140,38 @@ async function buildTransitThenTaxi(origin, point, destination) {
   }
 }
 
+// 지하철 호선 이름 (Odsay subwayCode 기준)
+const SUBWAY_NAMES = {
+  1: '1호선', 2: '2호선', 3: '3호선', 4: '4호선', 5: '5호선',
+  6: '6호선', 7: '7호선', 8: '8호선', 9: '9호선',
+  101: '공항철도', 104: '경의중앙선', 107: '인천1호선',
+  108: '경춘선', 109: '수인분당선', 110: '신분당선',
+  112: '우이신설선', 114: '서해선', 116: '경강선', 21: '인천2호선',
+}
+
 /**
  * Odsay subPath를 segment 배열로 변환
  * @param {Object} odsayPath
- * @returns {Array<{mode: string, duration: number, label: string}>}
+ * @returns {Array<{mode: string, duration: number, label: string, subwayCode: number|null}>}
  */
 function buildTransitSegments(odsayPath) {
-  const TYPE_LABEL = { 1: '지하철', 2: '버스', 3: '도보' }
   const TYPE_MODE = { 1: 'SUBWAY', 2: 'BUS', 3: 'WALK' }
 
-  return (odsayPath.subPath ?? []).map((seg) => ({
-    mode: TYPE_MODE[seg.trafficType] ?? 'TRANSIT',
-    duration: (seg.sectionTime ?? 0) * 60, // 분 → 초
-    label:
-      seg.trafficType === 3
-        ? `도보 ${seg.sectionTime}분`
-        : `${TYPE_LABEL[seg.trafficType]} ${seg.startName} → ${seg.endName}`,
-  }))
+  return (odsayPath.subPath ?? []).map((seg) => {
+    const mode = TYPE_MODE[seg.trafficType] ?? 'TRANSIT'
+    const subwayCode = seg.trafficType === 1 ? (seg.lane?.[0]?.subwayCode ?? null) : null
+    const busNo = seg.trafficType === 2 ? (seg.lane?.[0]?.busNo ?? null) : null
+
+    let label
+    if (seg.trafficType === 3) {
+      label = `도보 ${seg.sectionTime}분`
+    } else if (seg.trafficType === 1) {
+      const lineName = subwayCode != null ? (SUBWAY_NAMES[subwayCode] ?? `${subwayCode}호선`) : '지하철'
+      label = `${lineName} ${seg.startName} → ${seg.endName}`
+    } else {
+      label = `버스${busNo ? ` ${busNo}` : ''} ${seg.startName} → ${seg.endName}`
+    }
+
+    return { mode, duration: (seg.sectionTime ?? 0) * 60, label, subwayCode, busNo }
+  })
 }
