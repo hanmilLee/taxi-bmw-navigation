@@ -66,8 +66,8 @@ export default function App() {
           </div>
 
           {shouldShowResultsPanel && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 h-[50%] p-2 pt-[7.25rem] sm:p-3 sm:pt-[7.75rem] md:inset-y-0 md:left-0 md:right-auto md:h-auto md:w-[27rem] md:p-4 md:pt-[7rem]">
-              <Card className="pointer-events-auto h-full bg-background/90 shadow-xl backdrop-blur-lg supports-[backdrop-filter]:bg-background/82">
+            <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 h-[52%] p-2 pt-[7.25rem] sm:p-3 sm:pt-[7.75rem] md:pointer-events-none md:inset-y-0 md:left-0 md:right-auto md:h-auto md:w-[27rem] md:p-4 md:pt-[7rem]">
+              <Card className="pointer-events-auto h-full overflow-hidden bg-background/90 shadow-xl backdrop-blur-lg supports-[backdrop-filter]:bg-background/82">
                 <ResultsPanel
                   results={results}
                   notices={notices}

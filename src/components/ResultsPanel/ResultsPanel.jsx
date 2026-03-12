@@ -68,8 +68,8 @@ export function ResultsPanel({
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="space-y-3 border-b border-border/70 px-4 py-4">
+    <div className="flex h-full min-h-0 touch-pan-y flex-col overflow-y-auto overscroll-y-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] md:overflow-hidden">
+      <div className="space-y-3 border-b border-border/70 px-4 py-4 md:shrink-0">
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-[11px] tracking-wide text-muted-foreground uppercase">Search Results</p>
@@ -120,7 +120,7 @@ export function ResultsPanel({
           </div>
         )}
       </div>
-      <div className="flex-1 space-y-2.5 overflow-y-auto p-3 md:p-4">
+      <div className="space-y-2.5 p-3 pb-5 md:flex-1 md:min-h-0 md:overflow-y-auto md:p-4">
         {results.map((route, i) => (
           <RouteCard
             key={route.id}
