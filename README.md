@@ -23,9 +23,26 @@
 
 | 변수 | 발급처 | 설명 |
 |------|--------|------|
-| `VITE_KAKAO_JS_APP_KEY` | [developers.kakao.com](https://developers.kakao.com) | JavaScript 키 |
-| `VITE_KAKAO_REST_API_KEY` | [developers.kakao.com](https://developers.kakao.com) | REST API 키 |
-| `VITE_ODSAY_API_KEY` | [lab.odsay.com](https://lab.odsay.com) | Odsay API 키 |
+| `VITE_KAKAO_JS_APP_KEY` | [developers.kakao.com](https://developers.kakao.com/console/app) | 내 애플리케이션 > 앱 키 > JavaScript 키 |
+| `VITE_KAKAO_REST_API_KEY` | [developers.kakao.com](https://developers.kakao.com/console/app) | 내 애플리케이션 > 앱 키 > REST API 키 |
+| `VITE_ODSAY_API_KEY` | [lab.odsay.com](https://lab.odsay.com/guide/kr/guide#apikey) | 회원가입 후 마이페이지 > API 키 관리 |
+
+### Kakao 추가 설정 (앱 생성 후)
+
+1. **지도 서비스 활성화**
+   [내 애플리케이션](https://developers.kakao.com/console/app) > 앱 선택 > **제품 설정 > 카카오맵** > 활성화
+
+2. **JS SDK 도메인 등록** (지도 렌더링 허용)
+   [내 애플리케이션](https://developers.kakao.com/console/app) > 앱 선택 > **플랫폼 키 > JavaScript 키 > JS SDK 도메인**
+   → 로컬: `http://localhost:5173`
+   → 배포 후: `https://your-domain.vercel.app`
+
+### Odsay 추가 설정 (키 발급 후)
+
+**Service URI 등록** (도메인 인증)
+[마이페이지 > API 키 관리](https://lab.odsay.com/guide/kr/guide#apikey) > 해당 키 > Service URI
+→ 로컬: `http://localhost:5173`
+→ 배포 후: `https://your-domain.vercel.app`
 
 ## 로컬 실행
 
@@ -40,10 +57,6 @@ npm install
 # 3. 개발 서버 실행
 npm run dev
 ```
-
-Kakao 개발자 콘솔 설정:
-- **플랫폼 키 > JavaScript 키 > JS SDK 도메인**: `http://localhost:5173` 등록
-- **제품 설정 > 카카오맵**: 활성화
 
 ## Docker 실행
 
