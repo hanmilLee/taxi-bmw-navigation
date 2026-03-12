@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { usePlaceSearch } from '../../hooks/usePlaceSearch'
-import './PlaceInput.css'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
 const SAVED_LABELS = [
   { key: '집', icon: '🏠' },
@@ -13,11 +14,19 @@ const SAVED_LABELS = [
  *   placeholder: string,
  *   value: object|null,
  *   onChange: (place) => void,
+ *   className?: string,
  *   savedLocations: object,
  *   onSaveLocation: (label, place) => void,
  * }} props
  */
-export function PlaceInput({ placeholder, value, onChange, savedLocations = {}, onSaveLocation }) {
+export function PlaceInput({
+  placeholder,
+  value,
+  onChange,
+  className,
+  savedLocations = {},
+  onSaveLocation,
+}) {
   const [query, setQuery] = useState(value?.name ?? '')
   const [open, setOpen] = useState(false)
   const [showSaveMenu, setShowSaveMenu] = useState(false)
@@ -66,9 +75,9 @@ export function PlaceInput({ placeholder, value, onChange, savedLocations = {}, 
   const showSuggestions = open && !!query && (isLoading || suggestions.length > 0)
 
   return (
-    <div className="place-input" ref={wrapperRef}>
-      <div className="place-input__row">
-        <input
+    <div className={cn('relative w-full', className)} ref={wrapperRef}>
+      <div className="flex items-center gap-2">
+        <Input
           type="text"
           placeholder={placeholder}
           value={query}
@@ -76,11 +85,15 @@ export function PlaceInput({ placeholder, value, onChange, savedLocations = {}, 
           onFocus={handleFocus}
           onKeyDown={handleKeyDown}
           autoComplete="off"
+          className="h-12 rounded-lg px-4 text-sm md:h-14 md:text-base"
         />
         {value && onSaveLocation && (
           <button
             type="button"
-            className={`place-input__save-btn${showSaveMenu ? ' active' : ''}`}
+            className={cn(
+              'inline-flex h-12 w-12 items-center justify-center rounded-lg border bg-background text-sm transition md:h-14 md:w-14 md:text-base',
+              showSaveMenu && 'border-amber-400 bg-amber-50'
+            )}
             onClick={() => setShowSaveMenu((v) => !v)}
             title="즐겨찾기에 저장"
           >
@@ -90,12 +103,12 @@ export function PlaceInput({ placeholder, value, onChange, savedLocations = {}, 
       </div>
 
       {showSaveMenu && (
-        <div className="place-input__save-menu">
+        <div className="absolute top-[calc(100%+6px)] right-0 z-[130] overflow-hidden rounded-lg border border-border bg-popover shadow-md">
           {SAVED_LABELS.map(({ key, icon }) => (
             <button
               key={key}
               type="button"
-              className="place-input__save-item"
+              className="block w-full cursor-pointer whitespace-nowrap px-4 py-2.5 text-left text-sm text-popover-foreground hover:bg-muted"
               onMouseDown={() => {
                 onSaveLocation(key, value)
                 setShowSaveMenu(false)
@@ -108,18 +121,20 @@ export function PlaceInput({ placeholder, value, onChange, savedLocations = {}, 
       )}
 
       {showSavedDropdown && (
-        <ul className="place-input__dropdown">
-          <li className="place-input__section-header">즐겨찾기</li>
+        <ul className="absolute top-[calc(100%+6px)] right-0 left-0 z-[120] max-h-64 list-none overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md">
+          <li className="px-3 pb-1 pt-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            즐겨찾기
+          </li>
           {SAVED_LABELS.filter(({ key }) => savedLocations[key]).map(({ key, icon }) => (
             <li
               key={key}
-              className="place-input__item place-input__item--saved"
+              className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 hover:bg-muted"
               onMouseDown={() => handleSelect(savedLocations[key])}
             >
-              <span className="place-input__saved-icon">{icon}</span>
-              <div>
-                <span className="place-input__name">{key}</span>
-                <span className="place-input__address">{savedLocations[key].name}</span>
+              <span className="text-base leading-none">{icon}</span>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium text-popover-foreground">{key}</span>
+                <span className="text-xs text-muted-foreground">{savedLocations[key].name}</span>
               </div>
             </li>
           ))}
@@ -127,18 +142,18 @@ export function PlaceInput({ placeholder, value, onChange, savedLocations = {}, 
       )}
 
       {showSuggestions && (
-        <ul className="place-input__dropdown">
+        <ul className="absolute top-[calc(100%+6px)] right-0 left-0 z-[120] max-h-64 list-none overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md">
           {isLoading && (
-            <li className="place-input__loading">검색 중...</li>
+            <li className="px-3 py-2 text-sm text-muted-foreground">검색 중...</li>
           )}
           {suggestions.map((place, i) => (
             <li
               key={i}
-              className="place-input__item"
+              className="flex cursor-pointer flex-col gap-0.5 rounded-lg px-3 py-2 hover:bg-muted"
               onMouseDown={() => handleSelect(place)}
             >
-              <span className="place-input__name">{place.name}</span>
-              <span className="place-input__address">{place.address}</span>
+              <span className="text-sm font-medium text-popover-foreground">{place.name}</span>
+              <span className="text-xs text-muted-foreground">{place.address}</span>
             </li>
           ))}
         </ul>

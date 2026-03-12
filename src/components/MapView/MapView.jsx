@@ -2,10 +2,32 @@ import { useEffect, useRef } from 'react'
 import { drawRoute, clearOverlays } from './RouteLayer'
 import './MapView.css'
 
+function getViewportInsets(container) {
+  const width = container?.clientWidth ?? window.innerWidth
+  const height = container?.clientHeight ?? window.innerHeight
+  const isMobile = width < 768
+
+  if (isMobile) {
+    return {
+      top: Math.round(height * 0.22),     // 상단 검색 오버레이 영역
+      right: 16,
+      bottom: Math.round(height * 0.52),  // 하단 결과 시트 영역
+      left: 16,
+    }
+  }
+
+  return {
+    top: 120,   // 상단 검색 오버레이 높이
+    right: 28,
+    bottom: 28,
+    left: Math.round(Math.min(width * 0.42, 420)), // 좌측 결과 패널 폭
+  }
+}
+
 /**
  * @param {{
  *   selectedRoute: object|null,
- *   origin: object|null,
+  *   origin: object|null,
  *   destination: object|null
  * }} props
  */
@@ -35,7 +57,40 @@ export function MapView({ selectedRoute, origin, destination }) {
     }
 
     clearOverlays(overlaysRef.current)
-    drawRoute(mapRef.current, selectedRoute, origin, destination, overlaysRef.current)
+    const viewportInsets = getViewportInsets(containerRef.current)
+    drawRoute(
+      mapRef.current,
+      selectedRoute,
+      origin,
+      destination,
+      overlaysRef.current,
+      viewportInsets
+    )
+  }, [selectedRoute, origin, destination])
+
+  // 화면 크기 변화 시 가시 영역 기준으로 재정렬
+  useEffect(() => {
+    if (!mapRef.current) return
+
+    function handleResize() {
+      mapRef.current.relayout()
+
+      if (!selectedRoute || !origin || !destination) return
+
+      clearOverlays(overlaysRef.current)
+      const viewportInsets = getViewportInsets(containerRef.current)
+      drawRoute(
+        mapRef.current,
+        selectedRoute,
+        origin,
+        destination,
+        overlaysRef.current,
+        viewportInsets
+      )
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [selectedRoute, origin, destination])
 
   return <div className="map-view" ref={containerRef} />

@@ -2,8 +2,8 @@ import { getTaxiRoute } from '../api/kakaoMobility'
 import { getTransitRoute, extractTransferPoints } from '../api/odsay'
 import { haversineMeters } from '../utils/geo'
 
-const MAX_TRANSFER_POINTS = 10
 const MIN_TRANSFER_DISTANCE_M = 300 // 300m 이내 포인트는 스킵
+const HYBRID_CONCURRENCY = 6
 
 function formatTransferPointLabel(point) {
   const name = point?.name ?? ''
@@ -74,27 +74,47 @@ export async function computeOptimalRoutes(origin, destination) {
 
   // 2. 환승 포인트 추출 및 필터링
   const rawPoints = extractTransferPoints(bestTransitPath)
-  const transferPoints = rawPoints
-    .filter(
-      (p) =>
-        haversineMeters(origin, p) > MIN_TRANSFER_DISTANCE_M &&
-        haversineMeters(p, destination) > MIN_TRANSFER_DISTANCE_M
-    )
-    .slice(0, MAX_TRANSFER_POINTS)
+  const transferPoints = rawPoints.filter(
+    (p) =>
+      haversineMeters(origin, p) > MIN_TRANSFER_DISTANCE_M &&
+      haversineMeters(p, destination) > MIN_TRANSFER_DISTANCE_M
+  )
 
-  // 3. 각 환승 포인트에 대해 두 방향 조합 병렬 계산
-  const hybridPromises = transferPoints.flatMap((point) => [
+  // 3. 각 환승 포인트에 대해 두 방향 조합 계산
+  const hybridTasks = transferPoints.flatMap((point) => [
     // A: 택시(origin→P) + 대중교통(P→destination)
-    buildTaxiThenTransit(origin, point, destination),
+    () => buildTaxiThenTransit(origin, point, destination),
     // B: 대중교통(origin→P) + 택시(P→destination)
-    buildTransitThenTaxi(origin, point, destination),
+    () => buildTransitThenTaxi(origin, point, destination),
   ])
 
-  const hybridResults = await Promise.all(hybridPromises)
+  const hybridResults = await runWithConcurrency(hybridTasks, HYBRID_CONCURRENCY)
 
   const all = [...results, ...hybridResults.filter(Boolean)]
   all.sort((a, b) => a.totalDuration - b.totalDuration)
   return all
+}
+
+async function runWithConcurrency(tasks, concurrency) {
+  if (!tasks.length) return []
+  const results = new Array(tasks.length)
+  let cursor = 0
+
+  async function worker() {
+    while (true) {
+      const i = cursor
+      cursor += 1
+      if (i >= tasks.length) return
+      results[i] = await tasks[i]().catch(() => null)
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, tasks.length) },
+    () => worker()
+  )
+  await Promise.all(workers)
+  return results
 }
 
 async function buildTaxiThenTransit(origin, point, destination) {

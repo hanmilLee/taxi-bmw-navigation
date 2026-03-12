@@ -32,7 +32,8 @@ export async function getTransitRoute(origin, destination) {
 
 /**
  * Odsay path에서 환승 포인트 추출
- * non-walk subPath의 startName/startX/startY 수집
+ * - non-walk subPath의 시작/종료 지점을 수집
+ * - 지하철(trafficType=1)은 passStopList의 중간역까지 모두 수집
  * @param {Object} odsayPath - Odsay path 객체
  * @returns {Array<{name: string, x: number, y: number, isStation: boolean}>}
  */
@@ -40,26 +41,42 @@ export function extractTransferPoints(odsayPath) {
   const subPaths = odsayPath.subPath ?? []
   const seen = new Map()
 
-  for (const seg of subPaths) {
-    // trafficType: 1=지하철, 2=버스, 3=도보
-    if (seg.trafficType === 3) continue
-
-    const name = seg.startName
-    const isStation = seg.trafficType === 1
-    if (!name) continue
+  function upsertPoint(name, x, y, isStation) {
+    if (!name) return
+    const lng = Number.parseFloat(x)
+    const lat = Number.parseFloat(y)
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return
 
     if (!seen.has(name)) {
-      seen.set(name, {
-        name,
-        x: parseFloat(seg.startX), // longitude
-        y: parseFloat(seg.startY), // latitude
-        isStation,
-      })
-      continue
+      seen.set(name, { name, x: lng, y: lat, isStation })
+      return
     }
 
     if (isStation) {
       seen.get(name).isStation = true
+    }
+  }
+
+  for (const seg of subPaths) {
+    // trafficType: 1=지하철, 2=버스, 3=도보
+    if (seg.trafficType === 3) continue
+
+    const isStation = seg.trafficType === 1
+    upsertPoint(seg.startName, seg.startX, seg.startY, isStation)
+    upsertPoint(seg.endName, seg.endX, seg.endY, isStation)
+
+    // 지하철 구간은 경유 역 전체를 환승 후보로 포함
+    if (seg.trafficType === 1) {
+      const stations = seg.passStopList?.stations ?? []
+      for (const station of stations) {
+        const stationName =
+          station.stationName ??
+          station.stationNm ??
+          station.name ??
+          station.localStationName ??
+          ''
+        upsertPoint(stationName, station.x, station.y, true)
+      }
     }
   }
 

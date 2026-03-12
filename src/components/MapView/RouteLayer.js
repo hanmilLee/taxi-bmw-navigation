@@ -49,8 +49,9 @@ export function clearOverlays(overlays) {
  * @param {{ x: number, y: number }} origin
  * @param {{ x: number, y: number }} destination
  * @param {Array} overlays - mutable 배열 (cleanup용)
+ * @param {{ top: number, right: number, bottom: number, left: number }} [viewportInsets]
  */
-export function drawRoute(map, route, origin, destination, overlays) {
+export function drawRoute(map, route, origin, destination, overlays, viewportInsets) {
   const kakao = window.kakao
   const color = ROUTE_COLORS[route.type] ?? '#666'
 
@@ -118,7 +119,9 @@ export function drawRoute(map, route, origin, destination, overlays) {
   if (route.transferPoint) {
     bounds.extend(new kakao.maps.LatLng(route.transferPoint.y, route.transferPoint.x))
   }
-  map.setBounds(bounds)
+
+  const insets = viewportInsets ?? { top: 24, right: 24, bottom: 24, left: 24 }
+  map.setBounds(bounds, insets.top, insets.right, insets.bottom, insets.left)
 }
 
 /**

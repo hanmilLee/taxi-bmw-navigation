@@ -1,5 +1,7 @@
 import { formatDuration, formatFare } from '../../utils/formatters'
-import './RouteCard.css'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 const MODE_ICON = {
   TAXI: '🚕',
@@ -30,38 +32,50 @@ export function RouteCard({ route, isSelected, isBest, onClick }) {
   const transitFare = route.transitFare ?? 0
 
   return (
-    <div
-      className={`route-card ${isSelected ? 'route-card--selected' : ''}`}
+    <Card
+      className={cn(
+        'cursor-pointer border-l-4 py-3 transition-colors',
+        'hover:bg-muted/40',
+        isSelected && 'border-primary/40 bg-muted/30'
+      )}
       style={{ borderLeftColor: color }}
       onClick={onClick}
     >
-      <div className="route-card__header">
-        <span className="route-card__label">{route.label}</span>
-        {isBest && <span className="route-card__badge">최단</span>}
-      </div>
-
-      <div className="route-card__time">
-        {formatDuration(route.totalDuration)}
-      </div>
-
-      <div className="route-card__fare">
-        <div className="route-card__fare-total">총 {formatFare(route.fare)}</div>
-        <div className="route-card__fare-breakdown">
-          <span>택시 {formatBreakdownFare(taxiFare)}</span>
-          <span>대중교통 {formatBreakdownFare(transitFare)}</span>
+      <CardHeader className="gap-2 px-4 pb-1">
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-sm leading-snug font-semibold tracking-tight text-foreground">
+            {route.label}
+          </CardTitle>
+          {isBest && (
+            <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] tracking-wide">
+              최단
+            </Badge>
+          )}
         </div>
-      </div>
+        <p className="text-[1.35rem] leading-none font-semibold tracking-tight text-foreground md:text-[1.6rem]">
+          {formatDuration(route.totalDuration)}
+        </p>
+      </CardHeader>
 
-      <div className="route-card__segments">
-        {route.segments.map((seg, i) => (
-          <span key={i} className="route-card__segment">
-            {i > 0 && <span className="route-card__arrow">›</span>}
-            <span>
-              {MODE_ICON[seg.mode]} {seg.label}
+      <CardContent className="space-y-2 px-4 pb-1">
+        <div className="rounded-lg bg-muted/55 p-2.5">
+          <p className="text-xs font-medium text-foreground">총 {formatFare(route.fare)}</p>
+          <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+            <span>택시 {formatBreakdownFare(taxiFare)}</span>
+            <span>대중교통 {formatBreakdownFare(transitFare)}</span>
+          </div>
+        </div>
+
+        <div className="flex max-w-full flex-wrap items-center gap-1.5">
+          {route.segments.map((seg, i) => (
+            <span key={i} className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/80 bg-background px-2 py-1 text-[11px] text-muted-foreground">
+              {i > 0 && <span className="text-muted-foreground/70">›</span>}
+              <span className="text-[12px]">{MODE_ICON[seg.mode]}</span>
+              <span className="max-w-[9rem] truncate sm:max-w-[12rem]">{seg.label}</span>
             </span>
-          </span>
-        ))}
-      </div>
-    </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   )
 }

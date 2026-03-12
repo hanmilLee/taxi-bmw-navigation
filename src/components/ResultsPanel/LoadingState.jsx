@@ -1,15 +1,15 @@
-import './LoadingState.css'
+import { Card } from '@/components/ui/card'
 
 export function LoadingState() {
   return (
-    <div className="loading-state">
-      <p className="loading-state__msg">경로 조합 계산 중...</p>
+    <div className="space-y-3 p-4">
+      <p className="text-sm text-muted-foreground">경로 조합 계산 중...</p>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="skeleton-card">
-          <div className="skeleton-line skeleton-line--title" />
-          <div className="skeleton-line skeleton-line--sub" />
-          <div className="skeleton-line skeleton-line--short" />
-        </div>
+        <Card key={i} className="gap-2 rounded-xl px-4 py-3">
+          <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+          <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+          <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+        </Card>
       ))}
     </div>
   )

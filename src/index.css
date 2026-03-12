@@ -10,7 +10,6 @@
 }
 
 :root {
-  font-family: 'Manrope', 'Noto Sans KR', 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color-scheme: light;
@@ -55,7 +54,6 @@ body {
   padding: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: radial-gradient(1200px 500px at 20% 0%, #ecfeff, #f8fafc 50%);
 }
 
 button {

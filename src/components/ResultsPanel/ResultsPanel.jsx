@@ -1,6 +1,6 @@
 import { RouteCard } from './RouteCard'
 import { LoadingState } from './LoadingState'
-import './ResultsPanel.css'
+import { Badge } from '@/components/ui/badge'
 
 /**
  * @param {{
@@ -16,26 +16,25 @@ export function ResultsPanel({ results, isLoading, error, selectedId, onSelect }
 
   if (error) {
     return (
-      <div className="results-panel__error">
-        <p>⚠️ {error}</p>
+      <div className="flex h-full items-center justify-center px-5">
+        <p className="text-sm font-medium text-destructive">⚠️ {error}</p>
       </div>
     )
   }
 
   if (results.length === 0) {
-    return (
-      <div className="results-panel__empty">
-        <p>출발지와 도착지를 입력하고 경로를 검색하세요.</p>
-      </div>
-    )
+    return null
   }
 
   return (
-    <div className="results-panel">
-      <div className="results-panel__header">
-        {results.length}개 경로 ({results.length > 1 ? '빠른 순' : ''})
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+        <p className="text-sm font-medium text-foreground">{results.length}개 경로</p>
+        <Badge variant="outline" className="rounded-full text-[11px] text-muted-foreground">
+          {results.length > 1 ? '빠른 순' : '단일 결과'}
+        </Badge>
       </div>
-      <div className="results-panel__list">
+      <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {results.map((route, i) => (
           <RouteCard
             key={route.id}
