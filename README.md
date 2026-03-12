@@ -34,31 +34,27 @@
 
 2. **JS SDK 도메인 등록** (지도 렌더링 허용)
    [내 애플리케이션](https://developers.kakao.com/console/app) > 앱 선택 > **플랫폼 키 > JavaScript 키 > JS SDK 도메인**
-   → 로컬: `http://localhost:5173`
-   → 배포 후: `https://your-domain.vercel.app`
+   → 실행 환경의 도메인/포트 추가 (예: `http://localhost:5173`, `https://your-domain.com`)
 
 ### Odsay 추가 설정 (키 발급 후)
 
 **Service URI 등록** (도메인 인증)
 [마이페이지 > API 키 관리](https://lab.odsay.com/guide/kr/guide#apikey) > 해당 키 > Service URI
-→ 로컬: `http://localhost:5173`
-→ 배포 후: `https://your-domain.vercel.app`
+→ 실행 환경의 도메인/포트 추가 (예: `http://localhost:5173`, `https://your-domain.com`)
 
-## 로컬 실행
+> Odsay는 포트 번호까지 정확히 일치해야 인증됩니다.
+
+## 실행 방법
+
+### 로컬 개발
 
 ```bash
-# 1. 환경 변수 설정
-cp .env.example .env
-# .env 파일에 API 키 입력
-
-# 2. 패키지 설치
+cp .env.example .env   # API 키 입력
 npm install
-
-# 3. 개발 서버 실행
-npm run dev
+npm run dev            # http://localhost:5173
 ```
 
-## Docker 실행
+### Docker
 
 ```bash
 docker build \
@@ -71,7 +67,10 @@ docker run -p 8080:80 taxi-subway-map
 # http://localhost:8080
 ```
 
-## Vercel 배포
+### 프로덕션 빌드
 
-`vercel.json` 포함되어 있어 Vercel에 바로 배포 가능합니다.  
-배포 후 발급된 URL을 Kakao JS SDK 도메인 및 Odsay Service URI에 등록하세요.
+```bash
+npm run build   # dist/ 폴더 생성
+```
+
+정적 파일(`dist/`)을 nginx, Apache, S3+CloudFront 등 어디든 호스팅 가능합니다.
