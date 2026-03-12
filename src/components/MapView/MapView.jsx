@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import { drawRoute, clearOverlays } from './RouteLayer'
-import './MapView.css'
 
 function getViewportInsets(container) {
   const width = container?.clientWidth ?? window.innerWidth
@@ -9,18 +8,18 @@ function getViewportInsets(container) {
 
   if (isMobile) {
     return {
-      top: Math.round(height * 0.22),     // 상단 검색 오버레이 영역
-      right: 16,
-      bottom: Math.round(height * 0.52),  // 하단 결과 시트 영역
-      left: 16,
+      top: Math.round(Math.max(108, height * 0.15)),
+      right: 14,
+      bottom: Math.round(height * 0.55),
+      left: 14,
     }
   }
 
   return {
-    top: 120,   // 상단 검색 오버레이 높이
-    right: 28,
-    bottom: 28,
-    left: Math.round(Math.min(width * 0.42, 420)), // 좌측 결과 패널 폭
+    top: 146,
+    right: 24,
+    bottom: 24,
+    left: Math.round(Math.min(width * 0.38, 470)),
   }
 }
 
@@ -93,5 +92,5 @@ export function MapView({ selectedRoute, origin, destination }) {
     return () => window.removeEventListener('resize', handleResize)
   }, [selectedRoute, origin, destination])
 
-  return <div className="map-view" ref={containerRef} />
+  return <div className="h-full w-full bg-muted/40" ref={containerRef} />
 }

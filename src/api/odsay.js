@@ -1,5 +1,37 @@
 const ODSAY_KEY = import.meta.env.VITE_ODSAY_API_KEY
 
+export class TransitApiQuotaExceededError extends Error {
+  constructor(message = '대중교통 API 사용량이 소진되었습니다.') {
+    super(message)
+    this.name = 'TransitApiQuotaExceededError'
+    this.code = 'TRANSIT_API_QUOTA_EXCEEDED'
+  }
+}
+
+function isQuotaExceededPayload(status, payload) {
+  if (status === 429) return true
+
+  const rawMessage = [
+    payload?.error?.msg,
+    payload?.error?.message,
+    payload?.msg,
+    payload?.message,
+    payload?.error_description,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
+  if (!rawMessage) return false
+
+  return ['quota', 'limit', 'exceed', 'too many', 'usage', '한도', '초과', '제한']
+    .some((keyword) => rawMessage.includes(keyword))
+}
+
+export function isTransitApiQuotaExceededError(error) {
+  return error?.code === 'TRANSIT_API_QUOTA_EXCEEDED'
+}
+
 /**
  * 대중교통 경로 검색 (Odsay API)
  * @param {{ x: number, y: number }} origin - 출발지 (WGS84 longitude, latitude)
@@ -18,9 +50,30 @@ export async function getTransitRoute(origin, destination) {
   // Odsay는 Referer 기반 도메인 인증 → 브라우저에서 직접 호출 (프록시 사용 안 함)
   const res = await fetch(`https://api.odsay.com/v1/api/searchPubTransPathT?${params}`)
 
-  if (!res.ok) throw new Error(`Odsay API 오류: ${res.status}`)
+  if (!res.ok) {
+    let errorPayload = null
+
+    try {
+      errorPayload = await res.clone().json()
+    } catch {
+      errorPayload = null
+    }
+
+    if (isQuotaExceededPayload(res.status, errorPayload)) {
+      throw new TransitApiQuotaExceededError()
+    }
+
+    throw new Error(`Odsay API 오류: ${res.status}`)
+  }
 
   const data = await res.json()
+
+  if (data?.error) {
+    if (isQuotaExceededPayload(res.status, data)) {
+      throw new TransitApiQuotaExceededError()
+    }
+    throw new Error(`Odsay API 오류: ${data.error.msg ?? '응답 오류'}`)
+  }
 
   // Odsay: 경로 없음 = result.path가 없거나 빈 배열
   if (!data.result || !data.result.path) {

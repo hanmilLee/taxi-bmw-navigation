@@ -25,7 +25,7 @@
 |------|--------|------|
 | `VITE_KAKAO_JS_APP_KEY` | [developers.kakao.com](https://developers.kakao.com/console/app) | 내 애플리케이션 > 앱 키 > JavaScript 키 |
 | `VITE_KAKAO_REST_API_KEY` | [developers.kakao.com](https://developers.kakao.com/console/app) | 내 애플리케이션 > 앱 키 > REST API 키 |
-| `VITE_ODSAY_API_KEY` | [lab.odsay.com](https://lab.odsay.com/guide/kr/guide#apikey) | 회원가입 후 마이페이지 > API 키 관리 |
+| `VITE_ODSAY_API_KEY` | [lab.odsay.com](https://lab.odsay.com/guide/guide#guideWeb_1) | 회원가입 후 마이페이지 > API 키 관리 |
 
 ### Kakao 추가 설정 (앱 생성 후)
 
@@ -39,7 +39,7 @@
 ### Odsay 추가 설정 (키 발급 후)
 
 **Service URI 등록** (도메인 인증)
-[마이페이지 > API 키 관리](https://lab.odsay.com/guide/kr/guide#apikey) > 해당 키 > Service URI
+[마이페이지 > API 키 관리](https://lab.odsay.com/guide/guide#guideWeb_1) > 해당 키 > Service URI
 → 실행 환경의 도메인/포트 추가 (예: `http://localhost:5173`, `https://your-domain.com`)
 
 > Odsay는 포트 번호까지 정확히 일치해야 인증됩니다.

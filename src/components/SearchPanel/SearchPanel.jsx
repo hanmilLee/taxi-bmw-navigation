@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRightLeft } from 'lucide-react'
+import { ArrowRightLeft, CircleDot, Navigation } from 'lucide-react'
 import { PlaceInput } from './PlaceInput'
 import { useSavedLocations } from '../../hooks/useSavedLocations'
 import { Button } from '@/components/ui/button'
@@ -19,27 +19,40 @@ export function SearchPanel({ onSearch, isLoading }) {
     }
   }
 
+  function handleSwap() {
+    setOrigin(destination)
+    setDestination(origin)
+  }
+
   const canSearch = origin && destination && !isLoading
+  const canSwap = (origin || destination) && !isLoading
 
   return (
-    <form
-      className="rounded-xl border bg-card p-2.5 md:p-3"
-      onSubmit={handleSubmit}
-    >
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-2.5">
+    <form className="space-y-2 sm:space-y-0" onSubmit={handleSubmit}>
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_2.75rem_minmax(0,1fr)_8rem] sm:items-center">
         <PlaceInput
           className="min-w-0"
+          icon={CircleDot}
           placeholder="출발지를 입력하세요"
           value={origin}
           onChange={setOrigin}
           savedLocations={locations}
           onSaveLocation={save}
         />
-        <div className="hidden h-12 w-12 items-center justify-center rounded-lg border bg-muted text-muted-foreground sm:flex md:h-14 md:w-14">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-lg"
+          className="hidden h-10 w-10 rounded-xl sm:inline-flex"
+          onClick={handleSwap}
+          disabled={!canSwap}
+          title="출발지/도착지 바꾸기"
+        >
           <ArrowRightLeft className="size-4" />
-        </div>
+        </Button>
         <PlaceInput
           className="min-w-0"
+          icon={Navigation}
           placeholder="도착지를 입력하세요"
           value={destination}
           onChange={setDestination}
@@ -49,12 +62,24 @@ export function SearchPanel({ onSearch, isLoading }) {
         <Button
           type="submit"
           size="lg"
-          className="h-12 w-full rounded-xl px-5 text-sm font-semibold sm:w-auto md:h-14 md:px-6 md:text-[15px]"
+          className="h-11 w-full rounded-xl px-5 text-sm font-semibold md:h-11 md:px-6 md:text-[15px]"
           disabled={!canSearch}
         >
           {isLoading ? '계산 중...' : '경로 검색'}
         </Button>
       </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 w-full rounded-xl sm:hidden"
+        onClick={handleSwap}
+        disabled={!canSwap}
+      >
+        <ArrowRightLeft className="size-3.5" />
+        출발지/도착지 바꾸기
+      </Button>
     </form>
   )
 }

@@ -7,6 +7,7 @@ import { computeOptimalRoutes } from '../core/routeOptimizer'
  */
 export function useRouteSearch() {
   const [results, setResults] = useState([])
+  const [notices, setNotices] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
   const genRef = useRef(0)
@@ -18,12 +19,16 @@ export function useRouteSearch() {
     setIsLoading(true)
     setError(null)
     setResults([])
+    setNotices([])
 
     try {
-      const routeResults = await computeOptimalRoutes(origin, destination)
+      const searchResult = await computeOptimalRoutes(origin, destination)
+      const routeResults = Array.isArray(searchResult) ? searchResult : (searchResult?.routes ?? [])
+      const nextNotices = Array.isArray(searchResult?.notices) ? searchResult.notices : []
       // 이전 검색 결과면 무시 (stale 방지)
       if (gen !== genRef.current) return
       setResults(routeResults)
+      setNotices(nextNotices)
     } catch (e) {
       if (gen !== genRef.current) return
       setError(e.message || '경로 계산 중 오류가 발생했습니다.')
@@ -37,9 +42,10 @@ export function useRouteSearch() {
   const reset = useCallback(() => {
     genRef.current++
     setResults([])
+    setNotices([])
     setError(null)
     setIsLoading(false)
   }, [])
 
-  return { results, isLoading, error, search, reset }
+  return { results, notices, isLoading, error, search, reset }
 }

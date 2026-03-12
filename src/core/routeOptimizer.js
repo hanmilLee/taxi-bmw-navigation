@@ -1,5 +1,9 @@
-import { getTaxiRoute } from '../api/kakaoMobility'
-import { getTransitRoute, extractTransferPoints } from '../api/odsay'
+import { getTaxiRoute, isTaxiApiQuotaExceededError } from '../api/kakaoMobility'
+import {
+  getTransitRoute,
+  extractTransferPoints,
+  isTransitApiQuotaExceededError,
+} from '../api/odsay'
 import { haversineMeters } from '../utils/geo'
 
 const MIN_TRANSFER_DISTANCE_M = 300 // 300m 이내 포인트는 스킵
@@ -16,13 +20,33 @@ function formatTransferPointLabel(point) {
  * 전체 경로 최적화 계산
  * @param {{ name: string, x: number, y: number }} origin
  * @param {{ name: string, x: number, y: number }} destination
- * @returns {Promise<RouteOption[]>} totalDuration(초) 기준 오름차순 정렬
+ * @returns {Promise<{ routes: RouteOption[], notices: Array<{ id: string, type: string, message: string }> }>}
+ * totalDuration(초) 기준 오름차순 정렬
  */
 export async function computeOptimalRoutes(origin, destination) {
+  const taxiState = { quotaExceeded: false }
+  const transitState = { quotaExceeded: false }
+
+  const safeTaxiRoute = async (from, to) =>
+    getTaxiRoute(from, to).catch((error) => {
+      if (isTaxiApiQuotaExceededError(error)) {
+        taxiState.quotaExceeded = true
+      }
+      return null
+    })
+
+  const safeTransitRoute = async (from, to) =>
+    getTransitRoute(from, to).catch((error) => {
+      if (isTransitApiQuotaExceededError(error)) {
+        transitState.quotaExceeded = true
+      }
+      return []
+    })
+
   // 1. 순수 택시 + 대중교통 경로 병렬 조회
   const [pureTaxiResult, transitPaths] = await Promise.all([
-    getTaxiRoute(origin, destination).catch(() => null),
-    getTransitRoute(origin, destination).catch(() => []),
+    safeTaxiRoute(origin, destination),
+    safeTransitRoute(origin, destination),
   ])
 
   const results = []
@@ -69,7 +93,7 @@ export async function computeOptimalRoutes(origin, destination) {
 
   if (!bestTransitPath) {
     // 대중교통 경로 없음 → 택시만 반환
-    return results
+    return { routes: results, notices: buildNotices(taxiState, transitState) }
   }
 
   // 2. 환승 포인트 추출 및 필터링
@@ -83,16 +107,38 @@ export async function computeOptimalRoutes(origin, destination) {
   // 3. 각 환승 포인트에 대해 두 방향 조합 계산
   const hybridTasks = transferPoints.flatMap((point) => [
     // A: 택시(origin→P) + 대중교통(P→destination)
-    () => buildTaxiThenTransit(origin, point, destination),
+    () => buildTaxiThenTransit(origin, point, destination, safeTaxiRoute, safeTransitRoute),
     // B: 대중교통(origin→P) + 택시(P→destination)
-    () => buildTransitThenTaxi(origin, point, destination),
+    () => buildTransitThenTaxi(origin, point, destination, safeTaxiRoute, safeTransitRoute),
   ])
 
   const hybridResults = await runWithConcurrency(hybridTasks, HYBRID_CONCURRENCY)
 
   const all = [...results, ...hybridResults.filter(Boolean)]
   all.sort((a, b) => a.totalDuration - b.totalDuration)
-  return all
+  return { routes: all, notices: buildNotices(taxiState, transitState) }
+}
+
+function buildNotices(taxiState, transitState) {
+  const notices = []
+
+  if (taxiState.quotaExceeded) {
+    notices.push({
+      id: 'taxi-quota-exceeded',
+      type: 'warning',
+      message: '택시 API 사용량이 소진되어 택시 포함 경로 일부가 결과에서 제외되었어요.',
+    })
+  }
+
+  if (transitState.quotaExceeded) {
+    notices.push({
+      id: 'transit-quota-exceeded',
+      type: 'warning',
+      message: '대중교통 API 사용량이 소진되어 대중교통 포함 경로 일부가 결과에서 제외되었어요.',
+    })
+  }
+
+  return notices
 }
 
 async function runWithConcurrency(tasks, concurrency) {
@@ -117,10 +163,10 @@ async function runWithConcurrency(tasks, concurrency) {
   return results
 }
 
-async function buildTaxiThenTransit(origin, point, destination) {
+async function buildTaxiThenTransit(origin, point, destination, safeTaxiRoute, safeTransitRoute) {
   const [taxi, transitPaths] = await Promise.all([
-    getTaxiRoute(origin, point).catch(() => null),
-    getTransitRoute(point, destination).catch(() => []),
+    safeTaxiRoute(origin, point),
+    safeTransitRoute(point, destination),
   ])
 
   if (!taxi || !transitPaths[0]) return null
@@ -150,10 +196,10 @@ async function buildTaxiThenTransit(origin, point, destination) {
   }
 }
 
-async function buildTransitThenTaxi(origin, point, destination) {
+async function buildTransitThenTaxi(origin, point, destination, safeTaxiRoute, safeTransitRoute) {
   const [transitPaths, taxi] = await Promise.all([
-    getTransitRoute(origin, point).catch(() => []),
-    getTaxiRoute(point, destination).catch(() => null),
+    safeTransitRoute(origin, point),
+    safeTaxiRoute(point, destination),
   ])
 
   if (!transitPaths[0] || !taxi) return null
@@ -207,7 +253,7 @@ function buildTransitSegments(odsayPath) {
 
     let label
     if (seg.trafficType === 3) {
-      label = `도보 ${seg.sectionTime}분`
+      label = '도보'
     } else if (seg.trafficType === 1) {
       const lineName = subwayCode != null ? (SUBWAY_NAMES[subwayCode] ?? `${subwayCode}호선`) : '지하철'
       label = `${lineName} ${seg.startName} → ${seg.endName}`
