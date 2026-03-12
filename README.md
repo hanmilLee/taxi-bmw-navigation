@@ -1,61 +1,105 @@
-# 🚕 택시 + 대중교통 최적 경로
+# 🚕 Taxi + Transit Navigator
 
-일반 지도 앱에서 제공하지 않는 **택시 ↔ 대중교통 조합 경로**를 계산해 가장 빠른 이동 방법을 찾아주는 웹앱입니다.
+택시와 대중교통을 조합해, 단순 택시/단순 대중교통보다 더 빠른 경로를 한 화면에서 비교하는 웹앱입니다.
 
 ## 스크린샷
 
 ![Taxi + Transit Navigator 미리보기](docs/app-preview.png)
 
-## 기능
+## 핵심 기능
 
-- 출발지/도착지 입력 시 자동완성 (Kakao Local API)
-- 순수 택시, 순수 대중교통 경로 비교
-- **택시 → 대중교통** 조합 (중간 역/정류장까지 택시)
-- **대중교통 → 택시** 조합 (중간 역/정류장에서 택시)
-- 결과를 소요 시간 기준 오름차순 정렬
-- Kakao 지도에 선택 경로 시각화
+- 출발지/도착지 자동완성 검색 (Kakao Local API)
+- `택시만`, `대중교통만`, `택시 → 대중교통`, `대중교통 → 택시` 경로 동시 비교
+- 지하철 구간의 중간역까지 환승 후보로 확장해 조합 경로 탐색
+- 계산이 끝난 경로부터 점진적으로 리스트에 반영
+- API 한도 소진/요청량 제한 감지 시 사용자 안내 배너 표시
+- 선택 경로를 지도에 즉시 시각화
+- 네이버 지도 / 카카오 지도 웹 링크로 외부 열기
+- 집/직장 즐겨찾기 저장 (localStorage)
+
+## 경로 계산 방식
+
+1. 출발지/도착지 기준으로 순수 택시 + 순수 대중교통 경로를 먼저 계산합니다.
+2. 최적 대중교통 경로에서 환승 후보 지점을 추출합니다.
+3. 각 후보 지점에 대해 `택시 → 대중교통`, `대중교통 → 택시`를 병렬 계산합니다.
+4. 계산된 결과를 소요시간 기준으로 정렬해 즉시 갱신합니다.
+5. 대중교통 API 요청량 제한이 걸린 경우 일부 조합은 잠시 뒤 재시도합니다.
 
 ## 기술 스택
 
-- React + Vite
-- Kakao Maps JavaScript SDK (지도 렌더링)
-- Kakao Mobility REST API (택시 경로)
-- Kakao Local REST API (장소 검색)
-- Odsay API (대중교통 경로)
+- Frontend: React 19, Vite 7, Tailwind CSS 4, shadcn 스타일 컴포넌트
+- Map: Kakao Maps JavaScript SDK
+- Places: Kakao Local REST API
+- Taxi route: Kakao Mobility Directions API
+- Transit route: ODSAY API
 
-## 필요 API 키
+## 시작하기
 
-| 변수 | 발급처 | 설명 |
-|------|--------|------|
-| `VITE_KAKAO_JS_APP_KEY` | [developers.kakao.com](https://developers.kakao.com/console/app) | 내 애플리케이션 > 앱 키 > JavaScript 키 |
-| `VITE_KAKAO_REST_API_KEY` | [developers.kakao.com](https://developers.kakao.com/console/app) | 내 애플리케이션 > 앱 키 > REST API 키 |
-| `VITE_ODSAY_API_KEY` | [lab.odsay.com](https://lab.odsay.com/guide/guide#guideWeb_1) | 회원가입 후 마이페이지 > API 키 관리 |
+### 1) 요구 사항
 
-### Kakao 추가 설정 (앱 생성 후)
+- Node.js 20+
+- npm 10+
 
-1. **지도 서비스 활성화**
-   [내 애플리케이션](https://developers.kakao.com/console/app) > 앱 선택 > **제품 설정 > 카카오맵** > 활성화
+### 2) 환경 변수 설정
 
-2. **JS SDK 도메인 등록** (지도 렌더링 허용)
-   [내 애플리케이션](https://developers.kakao.com/console/app) > 앱 선택 > **플랫폼 키 > JavaScript 키 > JS SDK 도메인**
-   → 실행 환경의 도메인/포트 추가 (예: `http://localhost:5173`, `https://your-domain.com`)
-
-### Odsay 추가 설정 (키 발급 후)
-
-**Service URI 등록** (도메인 인증)
-[마이페이지 > API 키 관리](https://lab.odsay.com/guide/guide#guideWeb_1) > 해당 키 > Service URI
-→ 실행 환경의 도메인/포트 추가 (예: `http://localhost:5173`, `https://your-domain.com`)
-
-> Odsay는 포트 번호까지 정확히 일치해야 인증됩니다.
-
-## 실행 방법
-
-### 로컬 개발
+`.env.example`을 복사해서 `.env`를 만든 뒤 키를 입력하세요.
 
 ```bash
-cp .env.example .env   # API 키 입력
+cp .env.example .env
+```
+
+| 변수 | 설명 |
+|------|------|
+| `VITE_KAKAO_JS_APP_KEY` | Kakao JavaScript 키 (지도 SDK) |
+| `VITE_KAKAO_REST_API_KEY` | Kakao REST API 키 (장소 검색/택시 경로) |
+| `VITE_ODSAY_API_KEY` | ODSAY API 키 (대중교통 경로) |
+
+### 3) API 공급자 설정
+
+Kakao 설정:
+
+1. [Kakao Developers 콘솔](https://developers.kakao.com/console/app)에서 앱 생성
+2. 제품 설정에서 카카오맵 활성화
+3. `JavaScript 키 > JS SDK 도메인`에 실행 주소 등록
+
+예시:
+
+- `http://localhost:5173`
+- `https://your-domain.com`
+
+ODSAY 설정:
+
+1. [ODSAY 가이드](https://lab.odsay.com/guide/guide#guideWeb_1)에서 API 키 발급
+2. `마이페이지 > API 키 관리`에서 Service URI 등록
+
+예시:
+
+- `http://localhost:5173`
+- `https://your-domain.com`
+
+> ODSAY는 Service URI에 포트까지 정확히 일치해야 합니다.
+
+### 4) 로컬 실행
+
+```bash
 npm install
-npm run dev            # http://localhost:5173
+npm run dev
+```
+
+기본 주소: `http://localhost:5173`
+
+## 빌드 / 배포
+
+### 프로덕션 빌드
+
+```bash
+npm run build
+```
+
+### 로컬 프리뷰
+
+```bash
+npm run preview
 ```
 
 ### Docker
@@ -68,13 +112,24 @@ docker build \
   -t taxi-subway-map .
 
 docker run -p 8080:80 taxi-subway-map
-# http://localhost:8080
 ```
 
-### 프로덕션 빌드
+## 트러블슈팅
 
-```bash
-npm run build   # dist/ 폴더 생성
+- 지도가 안 뜰 때:
+  `VITE_KAKAO_JS_APP_KEY`와 Kakao JS SDK 도메인 등록 값을 먼저 확인하세요.
+- ODSAY 경로가 자주 실패할 때:
+  Service URI 등록(포트 포함)과 일일 한도를 확인하세요.
+- 결과 패널에 API 제한 안내가 뜰 때:
+  일부 조합 경로가 제외된 상태입니다. 잠시 후 재검색하면 일부가 복구될 수 있습니다.
+
+## 프로젝트 구조
+
+```text
+src/
+  api/         # Kakao/ODSAY API 호출
+  core/        # 경로 조합 최적화 로직
+  hooks/       # 검색/저장 상태 관리
+  components/  # SearchPanel, ResultsPanel, MapView
+  utils/       # 포맷팅, 외부지도 URL 등
 ```
-
-정적 파일(`dist/`)을 nginx, Apache, S3+CloudFront 등 어디든 호스팅 가능합니다.
