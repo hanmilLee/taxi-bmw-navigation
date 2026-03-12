@@ -1,0 +1,25 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/kakao-local': {
+        target: 'https://dapi.kakao.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/kakao-local/, ''),
+      },
+      '/kakao-mobility': {
+        target: 'https://apis-navi.kakaomobility.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/kakao-mobility/, ''),
+      },
+      '/odsay-api': {
+        target: 'https://api.odsay.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/odsay-api/, ''),
+      },
+    },
+  },
+})

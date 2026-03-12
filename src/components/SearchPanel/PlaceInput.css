@@ -1,0 +1,65 @@
+.place-input {
+  position: relative;
+  flex: 1;
+}
+
+.place-input input {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 15px;
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.place-input input:focus {
+  border-color: #3b82f6;
+}
+
+.place-input__dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  z-index: 100;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.place-input__loading {
+  padding: 10px 14px;
+  color: #888;
+  font-size: 14px;
+}
+
+.place-input__item {
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.place-input__item:hover {
+  background: #f5f5f5;
+}
+
+.place-input__name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.place-input__address {
+  font-size: 12px;
+  color: #888;
+}

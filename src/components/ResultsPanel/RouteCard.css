@@ -1,0 +1,80 @@
+.route-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1.5px solid #e8e8e8;
+  border-left: 4px solid #ddd;
+  cursor: pointer;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.route-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.route-card--selected {
+  border-color: #3b82f6;
+  border-left-width: 4px;
+  box-shadow: 0 2px 10px rgba(59,130,246,0.2);
+}
+
+.route-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.route-card__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.route-card__badge {
+  background: #10b981;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+}
+
+.route-card__time {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.route-card__fare {
+  font-size: 13px;
+  color: #666;
+}
+
+.route-card__segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.route-card__segment {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #555;
+  background: #f5f5f5;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.route-card__arrow {
+  color: #aaa;
+  font-size: 14px;
+  background: none;
+  padding: 0;
+}
