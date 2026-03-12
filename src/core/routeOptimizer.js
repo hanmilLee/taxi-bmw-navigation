@@ -5,6 +5,13 @@ import { haversineMeters } from '../utils/geo'
 const MAX_TRANSFER_POINTS = 10
 const MIN_TRANSFER_DISTANCE_M = 300 // 300m 이내 포인트는 스킵
 
+function formatTransferPointLabel(point) {
+  const name = point?.name ?? ''
+  if (!name) return ''
+  if (!point?.isStation) return name
+  return name.endsWith('역') ? name : `${name}역`
+}
+
 /**
  * 전체 경로 최적화 계산
  * @param {{ name: string, x: number, y: number }} origin
@@ -21,12 +28,15 @@ export async function computeOptimalRoutes(origin, destination) {
   const results = []
 
   if (pureTaxiResult) {
+    const taxiFare = pureTaxiResult.fare ?? 0
     results.push({
       id: 'pure_taxi',
       type: 'PURE_TAXI',
       label: '택시만',
       totalDuration: pureTaxiResult.duration,
-      fare: pureTaxiResult.fare,
+      fare: taxiFare,
+      taxiFare,
+      transitFare: 0,
       distance: pureTaxiResult.distance,
       transferPoint: null,
       segments: [
@@ -41,12 +51,15 @@ export async function computeOptimalRoutes(origin, destination) {
   if (bestTransitPath) {
     // Odsay totalTime은 분 단위 → 초로 변환
     const totalSec = bestTransitPath.info.totalTime * 60
+    const transitFare = bestTransitPath.info.payment ?? 0
     results.push({
       id: 'pure_transit',
       type: 'PURE_TRANSIT',
       label: '대중교통만',
       totalDuration: totalSec,
-      fare: bestTransitPath.info.payment,
+      fare: transitFare,
+      taxiFare: 0,
+      transitFare,
       distance: bestTransitPath.info.totalDistance,
       transferPoint: null,
       segments: buildTransitSegments(bestTransitPath),
@@ -95,13 +108,18 @@ async function buildTaxiThenTransit(origin, point, destination) {
   const transit = transitPaths[0]
   const transitSec = transit.info.totalTime * 60
   const totalDuration = taxi.duration + transitSec
+  const taxiFare = taxi.fare ?? 0
+  const transitFare = transit.info.payment ?? 0
+  const transferLabel = formatTransferPointLabel(point)
 
   return {
     id: `taxi_transit_${point.name}`,
     type: 'TAXI_THEN_TRANSIT',
-    label: `택시 → 대중교통 (${point.name})`,
+    label: `택시 → (${transferLabel}) → 대중교통`,
     totalDuration,
-    fare: taxi.fare + transit.info.payment,
+    fare: taxiFare + transitFare,
+    taxiFare,
+    transitFare,
     transferPoint: point,
     segments: [
       { mode: 'TAXI', duration: taxi.duration, label: `택시 → ${point.name}` },
@@ -123,13 +141,18 @@ async function buildTransitThenTaxi(origin, point, destination) {
   const transit = transitPaths[0]
   const transitSec = transit.info.totalTime * 60
   const totalDuration = transitSec + taxi.duration
+  const taxiFare = taxi.fare ?? 0
+  const transitFare = transit.info.payment ?? 0
+  const transferLabel = formatTransferPointLabel(point)
 
   return {
     id: `transit_taxi_${point.name}`,
     type: 'TRANSIT_THEN_TAXI',
-    label: `대중교통 → 택시 (${point.name})`,
+    label: `대중교통 → (${transferLabel}) → 택시`,
     totalDuration,
-    fare: transit.info.payment + taxi.fare,
+    fare: taxiFare + transitFare,
+    taxiFare,
+    transitFare,
     transferPoint: point,
     segments: [
       ...buildTransitSegments(transit),

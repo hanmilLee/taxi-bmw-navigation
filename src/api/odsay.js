@@ -34,7 +34,7 @@ export async function getTransitRoute(origin, destination) {
  * Odsay path에서 환승 포인트 추출
  * non-walk subPath의 startName/startX/startY 수집
  * @param {Object} odsayPath - Odsay path 객체
- * @returns {Array<{name: string, x: number, y: number}>}
+ * @returns {Array<{name: string, x: number, y: number, isStation: boolean}>}
  */
 export function extractTransferPoints(odsayPath) {
   const subPaths = odsayPath.subPath ?? []
@@ -45,12 +45,21 @@ export function extractTransferPoints(odsayPath) {
     if (seg.trafficType === 3) continue
 
     const name = seg.startName
-    if (name && !seen.has(name)) {
+    const isStation = seg.trafficType === 1
+    if (!name) continue
+
+    if (!seen.has(name)) {
       seen.set(name, {
         name,
         x: parseFloat(seg.startX), // longitude
         y: parseFloat(seg.startY), // latitude
+        isStation,
       })
+      continue
+    }
+
+    if (isStation) {
+      seen.get(name).isStation = true
     }
   }
 

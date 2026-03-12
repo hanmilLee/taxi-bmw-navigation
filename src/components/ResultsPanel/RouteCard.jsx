@@ -16,11 +16,18 @@ const TYPE_COLOR = {
   TRANSIT_THEN_TAXI: '#8b5cf6',
 }
 
+function formatBreakdownFare(amount) {
+  const value = Number.isFinite(amount) ? amount : 0
+  return `${value.toLocaleString('ko-KR')}원`
+}
+
 /**
  * @param {{ route: object, isSelected: boolean, isBest: boolean, onClick: () => void }} props
  */
 export function RouteCard({ route, isSelected, isBest, onClick }) {
   const color = TYPE_COLOR[route.type] ?? '#666'
+  const taxiFare = route.taxiFare ?? 0
+  const transitFare = route.transitFare ?? 0
 
   return (
     <div
@@ -37,7 +44,13 @@ export function RouteCard({ route, isSelected, isBest, onClick }) {
         {formatDuration(route.totalDuration)}
       </div>
 
-      <div className="route-card__fare">{formatFare(route.fare)}</div>
+      <div className="route-card__fare">
+        <div className="route-card__fare-total">총 {formatFare(route.fare)}</div>
+        <div className="route-card__fare-breakdown">
+          <span>택시 {formatBreakdownFare(taxiFare)}</span>
+          <span>대중교통 {formatBreakdownFare(transitFare)}</span>
+        </div>
+      </div>
 
       <div className="route-card__segments">
         {route.segments.map((seg, i) => (
