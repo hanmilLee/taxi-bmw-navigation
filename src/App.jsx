@@ -27,9 +27,9 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
-        <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between px-3 sm:px-4 md:px-6">
+        <div className="flex h-16 w-full items-center justify-between px-3 sm:px-4 md:px-6">
           <div className="flex items-center gap-3">
             <span className="inline-flex size-8 items-center justify-center rounded-lg border bg-muted text-muted-foreground">
               <Navigation className="size-4" />
@@ -49,8 +49,8 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1600px] p-2 sm:p-3 md:p-5">
-        <section className="relative h-[calc(100dvh-5.75rem)] min-h-[620px] overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <main className="h-[calc(100dvh-4rem)] w-full">
+        <section className="relative h-full min-h-[620px] w-full overflow-hidden bg-card">
           <MapView
             selectedRoute={activeRoute}
             origin={origin}
