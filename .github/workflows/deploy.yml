@@ -18,13 +18,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      APP_DIR: ${{ vars.DEPLOY_APP_DIR }}
-      CONTAINER_NAME: ${{ vars.DEPLOY_CONTAINER_NAME }}
+      APP_DIR: ${{ vars.DEPLOY_APP_DIR || format('/home/{0}/apps/{1}', vars.DEPLOY_USER, github.event.repository.name) }}
+      CONTAINER_NAME: ${{ vars.DEPLOY_CONTAINER_NAME || github.event.repository.name }}
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
-      DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
-      IMAGE_NAME: ${{ vars.DEPLOY_IMAGE_NAME }}
-      PORT: ${{ vars.DEPLOY_APP_PORT }}
+      IMAGE_NAME: ${{ vars.DEPLOY_IMAGE_NAME || github.event.repository.name }}
+      PORT: ${{ vars.DEPLOY_APP_PORT || '8080' }}
       REPO_URL: https://github.com/${{ github.repository }}.git
     steps:
       - name: Validate deploy config
@@ -35,28 +35,35 @@ jobs:
           VITE_ODSAY_API_KEY: ${{ secrets.VITE_ODSAY_API_KEY }}
         run: |
           set -euo pipefail
+          missing=()
+
           for name in \
-            APP_DIR \
-            CONTAINER_NAME \
             DEPLOY_HOST \
-            DEPLOY_PORT \
             DEPLOY_USER \
-            IMAGE_NAME \
-            PORT \
+            DEPLOY_SSH_PRIVATE_KEY \
             VITE_KAKAO_JS_APP_KEY \
             VITE_KAKAO_REST_API_KEY \
             VITE_ODSAY_API_KEY
           do
-            if [ -z "${!name}" ]; then
-              echo "Missing required deploy config: $name" >&2
-              exit 1
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
             fi
           done
 
-          if [ -z "${DEPLOY_SSH_PRIVATE_KEY:-}" ]; then
-            echo "Missing required deploy secret: DEPLOY_SSH_PRIVATE_KEY" >&2
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing required deploy settings:\n' >&2
+            printf ' - %s\n' "${missing[@]}" >&2
             exit 1
           fi
+
+          printf 'Deploy config resolved:\n'
+          printf ' - DEPLOY_HOST=%s\n' "$DEPLOY_HOST"
+          printf ' - DEPLOY_PORT=%s\n' "$DEPLOY_PORT"
+          printf ' - DEPLOY_USER=%s\n' "$DEPLOY_USER"
+          printf ' - DEPLOY_APP_DIR=%s\n' "$APP_DIR"
+          printf ' - DEPLOY_IMAGE_NAME=%s\n' "$IMAGE_NAME"
+          printf ' - DEPLOY_CONTAINER_NAME=%s\n' "$CONTAINER_NAME"
+          printf ' - DEPLOY_APP_PORT=%s\n' "$PORT"
 
       - name: Configure SSH
         env:

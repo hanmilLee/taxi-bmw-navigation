@@ -127,12 +127,12 @@ docker run -p 8080:80 taxi-subway-map
 GitHub repository variables:
 
 - `DEPLOY_HOST`
-- `DEPLOY_PORT`
 - `DEPLOY_USER`
-- `DEPLOY_APP_DIR`
-- `DEPLOY_IMAGE_NAME`
-- `DEPLOY_CONTAINER_NAME`
-- `DEPLOY_APP_PORT`
+- `DEPLOY_PORT` (optional, default: `22`)
+- `DEPLOY_APP_PORT` (optional, default: `8080`)
+- `DEPLOY_APP_DIR` (optional, default: `/home/<DEPLOY_USER>/apps/<repo-name>`)
+- `DEPLOY_IMAGE_NAME` (optional, default: `<repo-name>`)
+- `DEPLOY_CONTAINER_NAME` (optional, default: `<repo-name>`)
 
 GitHub repository secrets:
 
@@ -142,6 +142,8 @@ GitHub repository secrets:
 - `VITE_ODSAY_API_KEY`
 
 실제 운영 값은 workflow 파일에 하드코딩하지 말고, repository `Variables`와 `Secrets`에만 저장하는 구성을 권장합니다.
+
+실패 시 `Validate deploy config` 단계에서 누락된 설정 이름을 그대로 출력합니다.
 
 ## 트러블슈팅
 
