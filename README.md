@@ -114,6 +114,35 @@ docker build \
 docker run -p 8080:80 taxi-subway-map
 ```
 
+### GitHub Actions 배포
+
+`main` 브랜치에 push 되면 [`.github/workflows/deploy.yml`](/Users/hanmillee/Documents/New%20project/taxi-bmw-navigation/.github/workflows/deploy.yml)가 서버에 SSH 접속해서 아래 순서로 배포합니다.
+
+1. 서버의 `DEPLOY_APP_DIR` 경로에 저장소를 clone 또는 pull
+2. Docker 이미지 재빌드
+3. 같은 포트를 사용 중인 기존 컨테이너를 내리고 새 컨테이너로 교체
+4. `DEPLOY_APP_PORT:80` 포트로 재실행
+5. 컨테이너를 `--restart unless-stopped`로 실행해 서버 재부팅 후에도 자동 복구
+
+GitHub repository variables:
+
+- `DEPLOY_HOST`
+- `DEPLOY_PORT`
+- `DEPLOY_USER`
+- `DEPLOY_APP_DIR`
+- `DEPLOY_IMAGE_NAME`
+- `DEPLOY_CONTAINER_NAME`
+- `DEPLOY_APP_PORT`
+
+GitHub repository secrets:
+
+- `DEPLOY_SSH_PRIVATE_KEY`
+- `VITE_KAKAO_JS_APP_KEY`
+- `VITE_KAKAO_REST_API_KEY`
+- `VITE_ODSAY_API_KEY`
+
+실제 운영 값은 workflow 파일에 하드코딩하지 말고, repository `Variables`와 `Secrets`에만 저장하는 구성을 권장합니다.
+
 ## 트러블슈팅
 
 - 지도가 안 뜰 때:

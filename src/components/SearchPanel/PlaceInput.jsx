@@ -36,12 +36,7 @@ export function PlaceInput({
   const wrapperRef = useRef(null)
 
   const { suggestions, isLoading } = usePlaceSearch(open && query ? query : '')
-
-  // 외부 상태(예: 출발지/도착지 스왑) 변경 시 입력창 텍스트 동기화
-  useEffect(() => {
-    const nextQuery = value?.name ?? ''
-    setQuery((prev) => (prev === nextQuery ? prev : nextQuery))
-  }, [value?.name])
+  const displayedQuery = open ? query : (value?.name ?? query)
 
   // 외부 클릭 시 드롭다운 닫기
   useEffect(() => {
@@ -69,6 +64,7 @@ export function PlaceInput({
   }
 
   function handleFocus() {
+    setQuery(value?.name ?? query)
     setOpen(true)
   }
 
@@ -94,13 +90,13 @@ export function PlaceInput({
         <Input
           type="text"
           placeholder={placeholder}
-          value={query}
+          value={displayedQuery}
           onChange={handleInputChange}
           onFocus={handleFocus}
           onKeyDown={handleKeyDown}
           autoComplete="off"
           className={cn(
-            'h-11 rounded-xl border-border/80 bg-background/95 text-[15px] shadow-xs md:h-11 md:text-base',
+            'h-11 rounded-xl border-border/80 bg-background/95 text-base shadow-xs md:h-11',
             LeadingIcon ? 'pl-9' : 'pl-4',
             value && onSaveLocation ? 'pr-12 md:pr-14' : 'pr-4'
           )}

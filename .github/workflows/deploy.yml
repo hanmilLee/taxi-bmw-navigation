@@ -1,0 +1,174 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_DIR: ${{ vars.DEPLOY_APP_DIR }}
+      CONTAINER_NAME: ${{ vars.DEPLOY_CONTAINER_NAME }}
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      IMAGE_NAME: ${{ vars.DEPLOY_IMAGE_NAME }}
+      PORT: ${{ vars.DEPLOY_APP_PORT }}
+      REPO_URL: https://github.com/${{ github.repository }}.git
+    steps:
+      - name: Validate deploy config
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          VITE_KAKAO_JS_APP_KEY: ${{ secrets.VITE_KAKAO_JS_APP_KEY }}
+          VITE_KAKAO_REST_API_KEY: ${{ secrets.VITE_KAKAO_REST_API_KEY }}
+          VITE_ODSAY_API_KEY: ${{ secrets.VITE_ODSAY_API_KEY }}
+        run: |
+          set -euo pipefail
+          for name in \
+            APP_DIR \
+            CONTAINER_NAME \
+            DEPLOY_HOST \
+            DEPLOY_PORT \
+            DEPLOY_USER \
+            IMAGE_NAME \
+            PORT \
+            VITE_KAKAO_JS_APP_KEY \
+            VITE_KAKAO_REST_API_KEY \
+            VITE_ODSAY_API_KEY
+          do
+            if [ -z "${!name}" ]; then
+              echo "Missing required deploy config: $name" >&2
+              exit 1
+            fi
+          done
+
+          if [ -z "${DEPLOY_SSH_PRIVATE_KEY:-}" ]; then
+            echo "Missing required deploy secret: DEPLOY_SSH_PRIVATE_KEY" >&2
+            exit 1
+          fi
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Deploy on server
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          VITE_KAKAO_JS_APP_KEY: ${{ secrets.VITE_KAKAO_JS_APP_KEY }}
+          VITE_KAKAO_REST_API_KEY: ${{ secrets.VITE_KAKAO_REST_API_KEY }}
+          VITE_ODSAY_API_KEY: ${{ secrets.VITE_ODSAY_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          JS_KEY_B64="$(printf '%s' "$VITE_KAKAO_JS_APP_KEY" | base64 | tr -d '\n')"
+          REST_KEY_B64="$(printf '%s' "$VITE_KAKAO_REST_API_KEY" | base64 | tr -d '\n')"
+          ODSAY_KEY_B64="$(printf '%s' "$VITE_ODSAY_API_KEY" | base64 | tr -d '\n')"
+
+          ssh -i ~/.ssh/id_ed25519 \
+            -p "$DEPLOY_PORT" \
+            -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR='$APP_DIR' CONTAINER_NAME='$CONTAINER_NAME' IMAGE_NAME='$IMAGE_NAME' PORT='$PORT' REPO_URL='$REPO_URL' JS_KEY_B64='$JS_KEY_B64' REST_KEY_B64='$REST_KEY_B64' ODSAY_KEY_B64='$ODSAY_KEY_B64' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          docker_cmd() {
+            if docker info >/dev/null 2>&1; then
+              docker "$@"
+              return
+            fi
+
+            if command -v sudo >/dev/null 2>&1 && sudo docker info >/dev/null 2>&1; then
+              sudo docker "$@"
+              return
+            fi
+
+            echo "Docker is not available for the current user." >&2
+            exit 1
+          }
+
+          systemctl_cmd() {
+            if ! command -v systemctl >/dev/null 2>&1; then
+              return
+            fi
+
+            if systemctl "$@" >/dev/null 2>&1; then
+              return
+            fi
+
+            if command -v sudo >/dev/null 2>&1; then
+              sudo systemctl "$@" >/dev/null 2>&1 || true
+            fi
+          }
+
+          mkdir -p "$(dirname "$APP_DIR")"
+
+          if [ ! -d "$APP_DIR/.git" ]; then
+            git clone "$REPO_URL" "$APP_DIR"
+          fi
+
+          cd "$APP_DIR"
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+
+          VITE_KAKAO_JS_APP_KEY="$(printf '%s' "$JS_KEY_B64" | base64 -d)"
+          VITE_KAKAO_REST_API_KEY="$(printf '%s' "$REST_KEY_B64" | base64 -d)"
+          VITE_ODSAY_API_KEY="$(printf '%s' "$ODSAY_KEY_B64" | base64 -d)"
+
+          docker_cmd build \
+            --pull \
+            --build-arg "VITE_KAKAO_JS_APP_KEY=$VITE_KAKAO_JS_APP_KEY" \
+            --build-arg "VITE_KAKAO_REST_API_KEY=$VITE_KAKAO_REST_API_KEY" \
+            --build-arg "VITE_ODSAY_API_KEY=$VITE_ODSAY_API_KEY" \
+            -t "$IMAGE_NAME:latest" .
+
+          PORT_OWNER="$(
+            docker_cmd ps --format '{{.Names}}\t{{.Ports}}' \
+              | awk -F '\t' -v port="$PORT" '$2 ~ (":" port "->") { print $1; exit }'
+          )"
+
+          if [ -n "$PORT_OWNER" ] && [ "$PORT_OWNER" != "$CONTAINER_NAME" ]; then
+            docker_cmd rm -f "$PORT_OWNER"
+          fi
+
+          if docker_cmd ps -a --format '{{.Names}}' | grep -Fx "$CONTAINER_NAME" >/dev/null 2>&1; then
+            docker_cmd rm -f "$CONTAINER_NAME"
+          fi
+
+          docker_cmd run -d \
+            --name "$CONTAINER_NAME" \
+            --restart unless-stopped \
+            -p "$PORT:80" \
+            "$IMAGE_NAME:latest"
+
+          systemctl_cmd enable docker
+          systemctl_cmd start docker
+
+          if command -v curl >/dev/null 2>&1; then
+            for _ in 1 2 3 4 5; do
+              if curl --fail --silent --show-error "http://127.0.0.1:$PORT/" >/dev/null; then
+                break
+              fi
+              sleep 2
+            done
+          fi
+
+          docker_cmd ps --filter "name=$CONTAINER_NAME"
+          REMOTE
